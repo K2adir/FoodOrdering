@@ -1,15 +1,16 @@
-import { CartItem, Tables } from '@/types';
-import { PropsWithChildren, createContext, useContext, useState } from 'react';
-import { randomUUID } from 'expo-crypto';
-import { useInsertOrder } from '@/api/orders';
-import { useRouter } from 'expo-router';
-import { useInsertOrderItems } from '@/api/order-items';
+import { CartItem, Tables } from "@/types";
+import { PropsWithChildren, createContext, useContext, useState } from "react";
+import { randomUUID } from "expo-crypto";
+import { useInsertOrder } from "@/api/orders";
+import { useRouter } from "expo-router";
+import { useInsertOrderItems } from "@/api/order-items";
+import { initialisePaymentSheet, openPaymentSheet } from "@/lib/stripe";
 
-type Product = Tables<'products'>;
+type Product = Tables<"products">;
 
 type CartType = {
   items: CartItem[];
-  addItem: (product: Product, size: CartItem['size']) => void;
+  addItem: (product: Product, size: CartItem["size"]) => void;
   updateQuantity: (itemId: string, amount: -1 | 1) => void;
   total: number;
   checkout: () => void;
@@ -31,7 +32,7 @@ const CartProvider = ({ children }: PropsWithChildren) => {
 
   const router = useRouter();
 
-  const addItem = (product: Product, size: CartItem['size']) => {
+  const addItem = (product: Product, size: CartItem["size"]) => {
     // if already in cart, increment quantity
     const existingItem = items.find(
       (item) => item.product === product && item.size === size
@@ -75,7 +76,11 @@ const CartProvider = ({ children }: PropsWithChildren) => {
     setItems([]);
   };
 
-  const checkout = () => {
+  const checkout = async () => {
+    await initialisePaymentSheet(Math.floor(total * 100));
+    const paid = openPaymentSheet();
+    if (!paid) return;
+
     insertOrder(
       { total },
       {
@@ -84,7 +89,7 @@ const CartProvider = ({ children }: PropsWithChildren) => {
     );
   };
 
-  const saveOrderItems = (order: Tables<'orders'>) => {
+  const saveOrderItems = (order: Tables<"orders">) => {
     const orderItems = items.map((cartItem) => ({
       order_id: order.id,
       product_id: cartItem.product_id,
